@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# TB Infections Simulator - Pre-commit Hook
+# Runs checks to ensure code quality before committing
+
+echo "🔍 Running pre-commit checks..."
+
+# Run lint-staged for staged files
+npx lint-staged
+
+# Run TypeScript type checking
+echo "📝 Running TypeScript type check..."
+npm run type-check
+if [ $? -ne 0 ]; then
+    echo "❌ TypeScript type check failed. Please fix type errors before committing."
+    exit 1
+fi
+
+echo "✅ Pre-commit checks passed!"
