@@ -9,9 +9,42 @@ env:
   NODE_VERSION: '20.x'
 
 jobs:
+  # Pre-deployment checks
+  pre-deploy-check:
+    name: Pre-deployment Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify .npmrc configuration
+        run: |
+          if [ ! -f .npmrc ]; then
+            echo "❌ Error: .npmrc file is missing!"
+            exit 1
+          fi
+          echo "✅ .npmrc found"
+
+      - name: Clean install (simulates Vercel)
+        run: |
+          rm -rf node_modules
+          npm install
+
+      - name: Verify build succeeds
+        run: npm run build
+        env:
+          VERCEL: '1'
+          CI: 'true'
+
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    needs: [pre-deploy-check]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +56,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Run linting
         run: npm run lint
@@ -55,7 +88,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -71,6 +104,14 @@ jobs:
         run: |
           url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "## Staging Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deployed to: ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Comment on PR with deployment URL
         if: github.event_name == 'pull_request'

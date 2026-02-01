@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# TB Infections Simulator - Pre-push Hook
+# Runs comprehensive checks including build verification before pushing
+
+echo "🚀 Running pre-push checks..."
+
+# Run unit tests
+echo "🧪 Running unit tests..."
+npm run test:unit -- --run
+if [ $? -ne 0 ]; then
+    echo "❌ Unit tests failed. Please fix failing tests before pushing."
+    exit 1
+fi
+
+# Verify build succeeds (catches Vercel deployment issues)
+echo "🏗️  Verifying production build..."
+npm run build
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed. This would fail on Vercel deployment."
+    echo "   Please fix build errors before pushing."
+    exit 1
+fi
+
+# Check for dependency issues
+echo "📦 Checking for dependency issues..."
+npm ls --depth=0 2>&1 | grep -i "UNMET" && {
+    echo "⚠️  Warning: There are unmet peer dependencies."
+    echo "   This may cause issues on Vercel. Consider running 'npm install' again."
+}
+
+echo "✅ Pre-push checks passed! Safe to push."
